@@ -105,7 +105,7 @@ error_detect_depends() {
 
 # Pre-installation settings
 pre_install_docker_compose() {
-read -p " Nhập tên web: 
+read -p " Nhập tên web:" ApiHost
   [ -z "${ApiHost}" ] && ApiHost=".vpn4g.net"
   echo "-------------------------------"
   echo -e "Tên web là: ${ApiHost}"
