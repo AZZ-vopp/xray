@@ -105,11 +105,11 @@ error_detect_depends() {
 
 # Pre-installation settings
 pre_install_docker_compose() {
-read -p " Nhập tên web:" api_host
-  [ -z "${api_host}" ] && api_host=".vpn4g.net"
-  echo "-------------------------------"
-  echo -e "Tên web là: ${api_host}"
-  echo "-------------------------------"
+read -p " Tên Web:" api_host
+  [ -z "${api_host}" ] && api_host=0
+  echo "--------------------------------"
+  echo "Bạn đã chọn ${api_host}"
+  echo "--------------------------------"
 
   read -p " ID nút (Node_ID):" node_id
   [ -z "${node_id}" ] && node_id=0
