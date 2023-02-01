@@ -105,9 +105,8 @@ error_detect_depends() {
 
 # Pre-installation settings
 pre_install_docker_compose() {
-
-  read -p "Web đang sử dụng:" api_host
-   [ -z "${api_host}" ] && api_host=".vpn4g.net"
+read -p " Tên web đang sử dụng:" api_host
+  [ -z "${api_host}" ] && api_host=".vpn4g.net"
   echo "--------------------------------"
   echo "Bạn đã chọn ${api_host}"
   echo "--------------------------------"
@@ -131,7 +130,7 @@ read -p "Nhập Domain 443:" CertDomain
   echo "-------------------------------"
   echo -e "Domain 443 là: ${CertDomain}"
   echo "-------------------------------"
-  }
+}
 
 # Config docker
 config_docker() {
