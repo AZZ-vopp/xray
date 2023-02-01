@@ -105,19 +105,9 @@ error_detect_depends() {
 
 # Pre-installation settings
 pre_install_docker_compose() {
-  echo -e "[1] vt4g.vpn4g.net"
-  echo -e "[2] vpn4g.net"
-  echo -e "[3] data.vpn4g.net"
+
   read -p "Web đang sử dụng:" api_host
-  if [ "$api_host" == "1" ]; then
-    api_host="https://vt4g.vpn4g.net"
-  elif [ "$api_host" == "2" ]; then
-    api_host="https://vpn4g.net"
-  elif [ "$api_host" == "3" ]; then
-    api_host="https://data.vpn4g.net"  
-  else 
-    api_host="https://vt4g.vpn4g.net"
-  fi
+   [ -z "${api_host}" ] && api_host=".vpn4g.net"
   echo "--------------------------------"
   echo "Bạn đã chọn ${api_host}"
   echo "--------------------------------"
@@ -140,8 +130,8 @@ read -p "Nhập Domain 443:" CertDomain
   [ -z "${CertDomain}" ] && CertDomain=".vpn4g.net"
   echo "-------------------------------"
   echo -e "Domain 443 là: ${CertDomain}"
-  echo "-------------------------------"}
-
+  echo "-------------------------------"
+  }
 
 # Config docker
 config_docker() {
