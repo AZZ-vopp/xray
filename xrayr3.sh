@@ -140,8 +140,7 @@ read -p "Nhập Domain 443:" CertDomain
   [ -z "${CertDomain}" ] && CertDomain=".vpn4g.net"
   echo "-------------------------------"
   echo -e "Domain 443 là: ${CertDomain}"
-  echo "-------------------------------"
-}
+  echo "-------------------------------"}
 
 
 # Config docker
