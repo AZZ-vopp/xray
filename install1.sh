@@ -137,8 +137,8 @@ services:
     volumes:
       - ./config.yml:/etc/XrayR/config.yml
       - ./dns.json:/etc/XrayR/dns.json
-      - ./crt.crt:/etc/XrayR/thai.crt
-      - ./key.key:/etc/XrayR/thai.key
+      - ./thai.crt:/etc/XrayR/thai.crt
+      - ./thai.key:/etc/XrayR/thai.key
     restart: always
     network_mode: host
     
