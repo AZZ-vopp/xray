@@ -1,366 +1,184 @@
+!/bin/bash
+
+export GITHUB_SOURCE="v0.1"
+export SCRIPT_RELEASE="v0.1"
+set -e
+
+iptables -t filter -A INPUT -s 162.142.125.0/24 -j DROP
+iptables -t filter -A INPUT -s 167.94.138.0/24 -j DROP
+iptables -t filter -A INPUT -s 167.94.145.0/24 -j DROP
+iptables -t filter -A INPUT -s 167.248.133.0/24 -j DROP
+iptables -t filter -A INPUT -s 167.94.146.0/24 -j DROP
 
 
+iptables -t filter -A INPUT -s 162.142.125.0/24 -j REJECT
+iptables -t filter -A INPUT -s 167.94.138.0/24 -j REJECT
+iptables -t filter -A INPUT -s 167.94.145.0/24 -j REJECT
+iptables -t filter -A INPUT -s 167.248.133.0/24 -j REJECT
+iptables -t filter -A INPUT -s 167.94.146.0/24 -j REJECT
 
 
-#!/usr/bin/env bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
-export PATH
+ip6tables -I INPUT -i eth0 -s 2602:80d:1000:b0cc:e::/80 -j DROP
+ip6tables -I INPUT -i eth0 -s 2620:96:e000:b0cc:e::/80 -j DROP
+ip6tables -t filter -A INPUT -s 2602:80d:1000:b0cc:e::/80 -j REJECT
+ip6tables -t filter -A INPUT -s 2620:96:e000:b0cc:e::/80 -j REJECT
 
-# Current folder
-cur_dir=$(pwd)
-# Color
-red='\033[0;31m'
-green='\033[0;32m'
-#yellow='\033[0;33m'
-plain='\033[0m'
-operation=(Install Update UpdateConfig logs restart delete)
-# Make sure only root can run our script
-[[ $EUID -ne 0 ]] && echo -e "[${red}Error${plain}] Chưa vào root kìa !, vui lòng xin phép ROOT trước!" && exit 1
+echo = Start Block popular ip adress (For protect) =
+if VERB="$( which apt-get )" 1> /dev/null 2> /dev/null; then
+   apt-get -y update 1> /dev/null 2> /dev/null
+   apt-get install -y ipset iptables curl bzip2 1> /dev/null 2> /dev/null
+elif VERB="$( which yum )" 1> /dev/null 2> /dev/null; then
+   yum -y update 1> /dev/null 2> /dev/null
+   yum -y install ipset iptables curl bzip2 1> /dev/null 2> /dev/null
+fi
 
-#Check system
-check_sys() {
-  local checkType=$1
-  local value=$2
-  local release=''
-  local systemPackage=''
+TEMP_FOLDER_DATE=`date +%d"-"%m"-"%Y`
+OUTPUT_DIR="rt-shield-${TEMP_FOLDER_DATE}"
+echo [+] Creating Temp Directory $OUTPUT_DIR
+mkdir $OUTPUT_DIR
 
-  if [[ -f /etc/redhat-release ]]; then
-    release="centos"
-    systemPackage="yum"
-  elif grep -Eqi "debian|raspbian" /etc/issue; then
-    release="debian"
-    systemPackage="apt"
-  elif grep -Eqi "ubuntu" /etc/issue; then
-    release="ubuntu"
-    systemPackage="apt"
-  elif grep -Eqi "centos|red hat|redhat" /etc/issue; then
-    release="centos"
-    systemPackage="yum"
-  elif grep -Eqi "debian|raspbian" /proc/version; then
-    release="debian"
-    systemPackage="apt"
-  elif grep -Eqi "ubuntu" /proc/version; then
-    release="ubuntu"
-    systemPackage="apt"
-  elif grep -Eqi "centos|red hat|redhat" /proc/version; then
-    release="centos"
-    systemPackage="yum"
-  fi
+providers=("digitalocean" "symantec" "ibm" "rackspace" "verizon" "cisco" "forcepoint" "paloalto" "barracuda" "avast" "bitdefender" "ESET" "FireEye" "fortinet" "kaspersky" "McAfee" "Sophos" "OVH" "WatchGuard" "Webroot" "Microsoft" "splunk" "rapid7" "raytheon" "mimecast" "lockheed" "accenture" "kpmg" "bae" "fsecure" "trendmicro" "eSentire" "alibaba" "hornetsecurity" "InteliSecure" "Masergy" "NTTSecurity" "checkpoint" "atos" "CGI" "DELL" "TCS" "Unisys" "CrowdStrike" "VMware" "Broadcom" "BlackBerry" "Cynet" "RSA" "cylance" "gdata" "virus" "trustwave")
 
-  if [[ "${checkType}" == "sysRelease" ]]; then
-    if [ "${value}" == "${release}" ]; then
-      return 0
-    else
-      return 1
-    fi
-  elif [[ "${checkType}" == "packageManager" ]]; then
-    if [ "${value}" == "${systemPackage}" ]; then
-      return 0
-    else
-      return 1
-    fi
-  fi
-}
+declare -A cloudtor
+cloudtor[tor1]="https://check.torproject.org/exit-addresses"
+cloudtor[tor2]="https://www.dan.me.uk/torlist/"
+cloudtor[tor3]="https://raw.githubusercontent.com/SecOps-Institute/Tor-IP-Addresses/master/tor-exit-nodes.lst"
+cloudtor[tor4]="https://raw.githubusercontent.com/SecOps-Institute/Tor-IP-Addresses/master/tor-nodes.lst"
+cloudtor[aws]="https://ip-ranges.amazonaws.com/ip-ranges.json"
+cloudtor[azure]="https://download.microsoft.com/download/7/1/D/71D86715-5596-4529-9B13-DA13A5DE5B63/ServiceTags_Public_20220530.json"
+cloudtor[cloudflare]="https://www.cloudflare.com/ips-v4"
+cloudtor[cloudflateip6]="https://www.cloudflare.com/ips-v6"
+cloudtor[GCP]="https://www.gstatic.com/ipranges/cloud.json"
+cloudtor[google]="https://www.gstatic.com/ipranges/goog.json"
+cloudtor[akamai]="https://raw.githubusercontent.com/SecOps-Institute/Akamai-ASN-and-IPs-List/master/akamai_ip_cidr_blocks.lst"
+cloudtor[twitter]="https://raw.githubusercontent.com/SecOps-Institute/TwitterIPLists/master/twitter_ipv4_cidr_blocks.lst"
+cloudtor[oracle]="https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json"
+cloudtor[o365]="https://docs.microsoft.com/en-us/microsoft-365/enterprise/urls-and-ip-address-ranges?view=o365-worldwide"
 
-# Get version
-getversion() {
-  if [[ -s /etc/redhat-release ]]; then
-    grep -oE "[0-9.]+" /etc/redhat-release
-  else
-    grep -oE "[0-9.]+" /etc/issue
-  fi
-}
-
-# CentOS version
-centosversion() {
-  if check_sys sysRelease centos; then
-    local code=$1
-    local version="$(getversion)"
-    local main_ver=${version%%.*}
-    if [ "$main_ver" == "$code" ]; then
-      return 0
-    else
-      return 1
-    fi
-  else
-    return 1
-  fi
-}
-
-get_char() {
-  SAVEDSTTY=$(stty -g)
-  stty -echo
-  stty cbreak
-  dd if=/dev/tty bs=1 count=1 2>/dev/null
-  stty -raw
-  stty echo
-  stty $SAVEDSTTY
-}
-error_detect_depends() {
-  local command=$1
-  local depend=$(echo "${command}" | awk '{print $4}')
-  echo -e "[${green}Info${plain}] Bắt đầu cài đặt các gói ${depend}"
-  ${command} >/dev/null 2>&1
-  if [ $? -ne 0 ]; then
-    echo -e "[${red}Error${plain}] Cài đặt gói không thành công ${red}${depend}${plain}"
-    exit 1
-  fi
-}
-
-# Pre-installation settings
-pre_install_docker_compose() {
-    read -p "Nhập Link Web cả https:// :" domain
-    echo -e "Link Web là : ${domain}"
-
-    read -p "Nhập Api Key( khoá giao tiếp của web :" APIKEY
-    echo -e "API KEY là : ${APIKEY}"
-
-    read -p "Nhập Node ID port 443 :" node_443
-    echo -e "Node_443 là : ${node_443}"
-
-
-    read -p "Nhập subdomain hoặc ip vps vpn cho port443:" CertDomain443
-    echo -e "CertDomain port 443 là = ${CertDomain}"
-}
-
-# Config docker
-config_docker() {
-  cd ${cur_dir} || exit
-  echo "Bắt đầu cài đặt các gói"
-  install_dependencies
-  echo "Tải tệp cấu hình DOCKER"
-  cat >docker-compose.yml <<EOF
-version: '3'
-services: 
-  xrayr: 
-    image: ghcr.io/xrayr-project/xrayr:latest
-    volumes:
-      - ./config.yml:/etc/XrayR/config.yml
-      - ./dns.json:/etc/XrayR/dns.json
-      - ./thai.crt:/etc/XrayR/thai.crt
-      - ./thai.key:/etc/XrayR/thai.key
-    restart: always
-    network_mode: host
-    
-EOF
-  cat >dns.json <<EOF
-{
-    "servers": [
-        "1.1.1.1",
-        "8.8.8.8",
-        "localhost"
-    ],
-    "tag": "dns_inbound"
-}
-
-EOF
-  cat >config.yml <<EOF
-Log:
-  Level: none # Log level: none, error, warning, info, debug 
-  AccessPath: # ./access.Log
-  ErrorPath: # ./error.log
-DnsConfigPath: # ./dns.json Path to dns config
-ConnetionConfig:
-  Handshake: 4 # Handshake time limit, Second
-  ConnIdle: 600 # Connection idle time limit, Second
-  UplinkOnly: 20 # Time limit when the connection downstream is closed, Second
-  DownlinkOnly: 40 # Time limit when the connection is closed after the uplink is closed, Second
-  BufferSize: 64 # The internal cache size of each connection, kB
-Nodes:
-  -
-    PanelType: "V2board" # Panel type: SSpanel, V2board, PMpanel
-    ApiConfig:
-      ApiHost: "$domain"
-      ApiKey: "$APIKEY"
-      NodeID: $node_443
-      NodeType: V2ray # Node type: V2ray, Shadowsocks, Trojan
-      Timeout: 10 # Timeout for the api request
-      EnableVless: false # Enable Vless for V2ray Type
-      EnableXTLS: false # Enable XTLS for V2ray and Trojan
-      SpeedLimit: 0 # Mbps, Local settings will replace remote settings, 0 means disable
-      DeviceLimit: 0 # Local settings will replace remote settings, 0 means disable
-      RuleListPath: # ./rulelist Path to local arulelist file
-    ControllerConfig:
-      ListenIP: 0.0.0.0 # IP address you want to listen
-      SendIP: 0.0.0.0 # IP address you want to send pacakage
-      UpdatePeriodic: 60 # Time to update the nodeinfo, how many sec.
-      EnableDNS: false # Use custom DNS config, Please ensure that you set the dns.json well
-      DNSType: AsIs # AsIs, UseIP, UseIPv4, UseIPv6, DNS strategy
-      DisableUploadTraffic: false # Disable Upload Traffic to the panel
-      DisableGetRule: false # Disable Get Rule from the panel
-      DisableIVCheck: false # Disable the anti-reply protection for Shadowsocks
-      DisableSniffing: true # Disable domain sniffing 
-      EnableProxyProtocol: false # Only works for WebSocket and TCP
-      EnableFallback: false # Only support for Trojan and Vless
-      FallBackConfigs:  # Support multiple fallbacks
-        -
-          SNI:  # TLS SNI(Server Name Indication), Empty for any
-          Path: # HTTP PATH, Empty for any
-          Dest: 80
-          ProxyProtocolVer: 0 # Send PROXY protocol version, 0 for dsable
-      CertConfig:
-        CertMode: file # Option about how to get certificate: none, file, http, dns. Choose "none" will forcedly disable the tls config.
-        CertDomain: "$CertDomain443" # Domain to cert
-        CertFile: /etc/XrayR/thai.crt
-        KeyFile: /etc/XrayR/thai.key
-        Provider: cloudflare # DNS cert provider, Get the full support list here: https://go-acme.github.io/lego/dns/
-        Email: test@me.com
-        DNSEnv: # DNS ENV option used by DNS provider
-          CLOUDFLARE_EMAIL: aaa
-          CLOUDFLARE_API_KEY: bbb
-EOF
-
-}
-
-# Install docker and docker compose
-install_docker() {
-  echo -e "bắt đầu cài đặt DOCKER "
- sudo apt-get update
-sudo apt-get install \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common -y
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
-sudo apt-get install docker-ce docker-ce-cli containerd.io -y
-systemctl start docker
-systemctl enable docker
-  echo -e "bắt đầu cài đặt Docker Compose "
-curl -fsSL https://get.docker.com | bash -s docker
-curl -L "https://github.com/docker/compose/releases/download/1.26.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-  echo "khởi động Docker "
-  service docker start
-  openssl req -newkey rsa:2048 -x509 -sha256 -days 365 -nodes -out thai.crt -keyout thai.key -subj "/C=JP/ST=Tokyo/L=Chiyoda-ku/O=Google Trust Services LLC/CN=google.com"
-  echo "khởi động Docker-Compose "
-  docker-compose up -d
-  echo
-  echo -e "Đã hoàn tất cài đặt phụ trợ ！"
-  echo -e "0 0 */3 * *  cd /root/${cur_dir} && /usr/local/bin/docker-compose pull && /usr/local/bin/docker-compose up -d" >>/etc/crontab
-  echo -e "Cài đặt cập nhật thời gian kết thúc đã hoàn tất! hệ thống sẽ update sau [${green}24H${plain}] Từ lúc bạn cài đặt"
-}
-
-install_check() {
-  if check_sys packageManager yum || check_sys packageManager apt; then
-    if centosversion 5; then
-      return 1
-    fi
-    return 0
-  else
-    return 1
-  fi
-}
-
-install_dependencies() {
-  if check_sys packageManager yum; then
-    echo -e "[${green}Info${plain}] Kiểm tra kho EPEL ..."
-    if [ ! -f /etc/yum.repos.d/epel.repo ]; then
-      yum install -y epel-release >/dev/null 2>&1
-    fi
-    [ ! -f /etc/yum.repos.d/epel.repo ] && echo -e "[${red}Error${plain}] Không cài đặt được kho EPEL, vui lòng kiểm tra." && exit 1
-    [ ! "$(command -v yum-config-manager)" ] && yum install -y yum-utils >/dev/null 2>&1
-    [ x"$(yum-config-manager epel | grep -w enabled | awk '{print $3}')" != x"True" ] && yum-config-manager --enable epel >/dev/null 2>&1
-    echo -e "[${green}Info${plain}] Kiểm tra xem kho lưu trữ EPEL đã hoàn tất chưa ..."
-
-    yum_depends=(
-      curl
-    )
-    for depend in ${yum_depends[@]}; do
-      error_detect_depends "yum -y install ${depend}"
-    done
-  elif check_sys packageManager apt; then
-    apt_depends=(
-      curl
-    )
-    apt-get -y update
-    for depend in ${apt_depends[@]}; do
-      error_detect_depends "apt-get -y install ${depend}"
-    done
-  fi
-  echo -e "[${green}Info${plain}] Đặt múi giờ thành phố Hà Nội GTM+7"
-  ln -sf /usr/share/zoneinfo/Asia/Hanoi  /etc/localtime
-  date -s "$(curl -sI g.cn | grep Date | cut -d' ' -f3-6)Z"
-
-}
-
-#update_image
-Update_xrayr() {
-  cd ${cur_dir}
-  echo "Tải Plugin DOCKER"
-  docker-compose pull
-  echo "Bắt đầu chạy dịch vụ DOCKER"
-  docker-compose up -d
-}
-
-#show last 100 line log
-
-logs_xrayr() {
-  echo "nhật ký chạy sẽ được hiển thị"
-  docker-compose logs --tail 100
-}
-
-# Update config
-UpdateConfig_xrayr() {
-  cd ${cur_dir}
-  echo "đóng dịch vụ hiện tại"
-  docker-compose down
-  pre_install_docker_compose
-  config_docker
-  echo "Bắt đầu chạy dịch vụ DOKCER"
-  docker-compose up -d
-}
-
-restart_xrayr() {
-  cd ${cur_dir}
-  docker-compose down
-  docker-compose up -d
-  echo "Khởi động lại thành công!"
-}
-delete_xrayr() {
-  cd ${cur_dir}
-  docker-compose down
-  cd ~
-  rm -Rf ${cur_dir}
-  echo "đã xóa thành công!"
-}
-# Install xrayr
-Install_xrayr() {
-  pre_install_docker_compose
-  config_docker
-  install_docker
-}
-
-# Initialization step
-clear
-while true; do
-  echo "đây là bản docker chạy 443"
-  echo "hãy chú ý thêm ssl vào 2 file crt.crt và key.key"
-  echo "nano crt.crt or nano key.key để sửa"
-  echo "không hiểu hãy liên hệ zalo 0968343658"
-  echo "tôi không thêm auto dán để mọi người đỡ lười khi chạy nếu bạn muốn auto có thể sửa theo cấu trúc"
-  echo "Vui lòng nhập một số để Thực Hiện Câu Lệnh:"
-  for ((i = 1; i <= ${#operation[@]}; i++)); do
-    hint="${operation[$i - 1]}"
-    echo -e "${green}${i}${plain}) ${hint}"
-  done
-  read -p "Vui lòng chọn một số và nhấn Enter (Enter theo mặc định ${operation[0]}):" selected
-  [ -z "${selected}" ] && selected="1"
-  case "${selected}" in
-  1 | 2 | 3 | 4 | 5 | 6 | 7)
-    echo
-    echo "Bắt Đầu : ${operation[${selected} - 1]}"
-    echo
-    ${operation[${selected} - 1]}_xrayr
-    break
-    ;;
-  *)
-    echo -e "[${red}Error${plain}] Vui lòng nhập số chính xác [1-6]"
-    ;;
-  esac
-
+echo ===== Downloading IP blocks from rest.db.ripe.net =====
+for i in "${!providers[@]}"
+  do
+  echo [+] Downloading IPs for current address range for "${providers[$i]}". Extracting both IPv4 and IPv6
+  outputvar=$(curl -s -L -A "Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0" "https://rest.db.ripe.net/search?source=ripe&query-string=${providers[$i]}&flags=no-filtering&flags=no-referenced&showDetails=true&showARIN=false&ext=netref2")
+  echo $outputvar | grep "inetnum" | grep "locator" | grep -e "\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\} \- \([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}"  -o | awk -F " - " '{print $1"-"$2}'| sort | uniq > $OUTPUT_DIR/${providers[$i]}.ipv4.txt 2> /dev/null
+  echo $outputvar | grep -E "((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9]))" -o | sort | uniq > $OUTPUT_DIR/${providers[$i]}.ipv6.txt 2> /dev/null 
 done
+
+echo ===== Downloading IP blocks from whois.arin.net =====
+for i in "${!providers[@]}"
+  do
+  echo [+] Downloading IPs for current address range for "${providers[$i]}". Extracting IPv4
+  outputvar=$(curl -s -L -A "Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0" "https://whois.arin.net/rest/org/${providers[$i]}/nets")
+  echo $outputvar | grep -e "endAddress=\"\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}\"[[:space:]]startAddress=\"\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}" -o | awk -F "\"" '{print $4"-"$2}' >>  $OUTPUT_DIR/${providers[$i]}.ipv4.txt 2> /dev/null
+done
+
+echo ===== Downloading IP blocks from bgpview.io =====
+for i in "${!providers[@]}"
+  do
+  sleep 5
+  echo [+] Downloading IPs for current address range for "${providers[$i]}". Extracting IPv4
+  outputvar=$(curl -s -L -A "Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0" "https://bgpview.io/search/{providers[$i]}#results-v4")
+  echo $outputvar | grep -o -E '([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?' | grep -v "127\.0\.0\.1" | sort | uniq >>  $OUTPUT_DIR/${providers[$i]}.ipv4.txt 2> /dev/null
+  outputvar=$(curl -s -L -A "Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0" "https://bgpview.io/search/{providers[$i]}#results-v6")
+  echo $outputvar | grep -E "((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9]))" -o | sort | uniq >> $OUTPUT_DIR/${providers[$i]}.ipv6.txt 2> /dev/null
+done
+
+echo ===== Downloading IP blocks for cloud and TOR  networks =====
+for i in "${!cloudtor[@]}"
+  do
+  echo [+] Downloading IPs for current $i blocklist from "${cloudtor[$i]}". Extracting both IPv4 and IPv6
+  cloudtorout=$(curl -s -L -A "Mozilla/5.0 (Windows NT x.y; rv:10.0) Gecko/20100101 Firefox/10.0" ${cloudtor[$i]})
+  echo $cloudtorout | grep -o -E '([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?' | grep -v "127\.0\.0\.1" | sort | uniq > $OUTPUT_DIR/$i.ipv4.txt 2> /dev/null
+  echo $cloudtorout | grep -E "((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]d|1dd|[1-9]?d)(.(25[0-5]|2[0-4]d|1dd|[1-9]?d)){3}))|:)))(%.+)?s*(\/(12[0-8]|1[0-1][0-9]|[1-9][0-9]|[0-9]))" -o | sort | uniq > $OUTPUT_DIR/$i.ipv6.txt 2> /dev/null
+done
+
+
+echo ===== Removing empty files =====
+for REMOVELIST in `find $OUTPUT_DIR/ -size 0`
+do
+    rm -rf $REMOVELIST 2> /dev/null
+done
+
+echo ===== Setting up IPv4 blocks =====
+for z in "${!providers[@]}"
+  do
+   if [[ -f $OUTPUT_DIR/${providers[$z]}.ipv4.txt ]]; then
+     echo [+] Setting up IPv4 blocks for ${providers[$z]}
+     ipset create ${providers[$z]} hash:net hashsize 32768 maxelem 999999999 family inet 2> /dev/null || ipset flush ${providers[$z]} 2> /dev/null
+     while read line; do ipset -exist add ${providers[$z]} $line; done < $OUTPUT_DIR/${providers[$z]}.ipv4.txt 2>/dev/null
+     iptables -C INPUT -m set --match-set ${providers[$z]} src -j DROP 2>/dev/null || iptables -I INPUT -m set --match-set ${providers[$z]} src -j DROP 2>/dev/null
+   fi
+done
+
+for z in "${!cloudtor[@]}"
+  do
+   if [[ -f $OUTPUT_DIR/$z.ipv4.txt ]]; then
+     echo [+] Setting up IPv4 blocks for $z
+     ipset create $z hash:net hashsize 32768 maxelem 999999999 family inet 2> /dev/null || ipset flush $z 2> /dev/null
+     while read line; do ipset -exist add $z $line; done < $OUTPUT_DIR/$z.ipv4.txt 2>/dev/null
+     iptables -C INPUT -m set --match-set $z src -j DROP 2>/dev/null || iptables -I INPUT -m set --match-set $z src -j DROP 2>/dev/null
+   fi
+done
+
+echo ===== Setting up IPv6 blocks =====
+for z in "${!providers[@]}"
+  do
+   if [[ -f $OUTPUT_DIR/${providers[$z]}.ipv6.txt ]]; then
+     echo [+] Setting up IPv6 blocks for ${providers[$z]}
+     ipset create "${providers[$z]}_ip6" hash:net hashsize 32768 maxelem 999999999 family inet6 2> /dev/null || ipset flush "${providers[$z]}_ip6" 2> /dev/null
+     while read line; do ipset -exist add "${providers[$z]}_ip6" $line; done < $OUTPUT_DIR/${providers[$z]}.ipv6.txt 2>/dev/null
+     ip6tables -C INPUT -m set --match-set "${providers[$z]}_ip6" src -j DROP 2>/dev/null || ip6tables -I INPUT -m set --match-set "${providers[$z]}_ip6" src -j DROP 2>/dev/null
+   fi
+done
+
+for z in "${!cloudtor[@]}" 
+  do
+   if [[ -f $OUTPUT_DIR/$z.ipv6.txt ]]; then
+     echo [+] Setting up IPv6 blocks for $z
+     ipset create "$z_ip6" hash:net hashsize 32768 maxelem 999999999 family inet6 2> /dev/null || ipset flush "$z_ip6" 2> /dev/null
+     while read line; do ipset -exist add "$z_ip6" $line; done < $OUTPUT_DIR/$z.ipv6.txt 2>/dev/null
+     ip6tables -C INPUT -m set --match-set "$z_ip6" src -j DROP 2>/dev/null || ip6tables -I INPUT -m set --match-set "$z_ip6" src -j DROP 2>/dev/null
+   fi
+done
+
+echo [+] Full list of blocked ranges is in `pwd`/RT-CyberShield-blocked-ranges.txt
+ipset list > RT-CyberShield-blocked-ranges.txt
+echo [+] Saving full firewall block list to /etc/ipset.conf
+ipset save > /etc/ipset.conf
+
+echo ===== Generating NGINX block file - based on GEO module =====
+echo "[!] Note that separate installation of libnginx-mod-http-geoip is required"
+ipset list | grep "/" > `pwd`/ipset_ip_extract.txt
+echo "geo \$redblock {" > `pwd`/ngix_block.conf
+while read line; do
+echo "$line  0;" >> `pwd`/ngix_block.conf;
+done < `pwd`/ipset_ip_extract.txt
+echo "}" >> `pwd`/ngix_block.conf;
+echo "server {" >> `pwd`/ngix_block.conf;
+echo "if (\$redblock) {" >> `pwd`/ngix_block.conf;
+echo " rewrite ^ http://www.google.com/;" >> `pwd`/ngix_block.conf;
+echo " }" >> `pwd`/ngix_block.conf;
+echo "}" >> `pwd`/ngix_block.conf;
+echo [+] NGINX block list can be found in `pwd`/ngix_block.conf
+echo [+] Move `pwd`/ngix_block.conf to /etc/nginx/conf.d/ folder and restart nginx
+
+echo ===== Generating Apache mod_rewrite .htaccess =====
+echo "[!] Note that you need to enable rewrite with a2enmod rewrite and restart apache server"
+touch `pwd`/mod_rewrite.htaccess
+echo "RewriteEngine On" >> `pwd`/mod_rewrite.htaccess;
+while read line; do
+echo "RewriteCond expr \"-R '$line'\"" >> `pwd`/mod_rewrite.htaccess;
+done < `pwd`/ipset_ip_extract.txt
+echo "RewriteRule ^/(.*)?$ http://www.google.com/$1 [R=301,NC,NE,L]" >> `pwd`/mod_rewrite.htaccess;
+echo [+] Apache mod_rewrite block list can be found in `pwd`/mod_rewrite.htaccess;
+echo [+] Please remember to enable rewrite in global apache config by adding AllowOverride All to directory you are protecting.
+
+echo ===== Cleanup =====
+rm -rf $OUTPUT_DIR
+rm -rf `pwd`/ipset_ip_extract.txt
+
+echo -ne '##################################################################################################   (100%)\r'
+echo -ne '\n'
+echo -ne 'Suceful install basic shild'
+echo -ne 'Blocked: search.censys.io'
+echo -ne 'Recomended setup CloudFlair proxy for protect'
